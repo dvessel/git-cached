@@ -1,17 +1,25 @@
 Installation
 -------------
 
-Open ~/.bash_profile and add the following. If your shell is using a different file, then use that. Modify as needed:
+Open ~/.bash_profile and add the following. If your shell is using a different file, then use that.
 
-    export GIT_CACHE_DIR=$HOME/.git_cache
-    export PATH=/path/to/these/scripts:$PATH
+To call the commands without prefixing the paths:
 
-Then make them executable from the terminal:
+    export PATH=/path/to/scripts:$PATH
+    
+    # or set as a shortcut:
+    alias gitc=/path/to/scripts/git-cached
+    alias gitcc=/path/to/scripts/git-cache-control
 
-    cd /path/to/these/scripts
+This is where the cached references are stored. It is optional:
+
+    export GIT_CACHED_DIR=$HOME/.git_cache
+
+Then make them executable from the terminal (if they are not executable already):
+
+    cd /path/to/scripts/
     chmod u+x git-cache*
 
-The above assumes you left the names intact. It will make `git-cache-control`, `git-cache-parse-url`, `git-cache-repo` and `git-cached` executable. git-cache-parse-url and git-cache-repo are helpers and should not be called directly.
 
 Usage
 ------
@@ -58,6 +66,3 @@ Notes
   - Removing projects from the cache repo does not remove their objects. This allows the referenced clones to continue to work. Removing the whole cache repo for the domain on the other hand will invalidate them. Just remember to repair.
   - If you move the clone to another machine it may invalidate the path pointing to the cache. Changing `GIT_CACHE_DIR` will do the same. Simply call `git-cached repair` in your working directory to fix it.
   - This is the first bash script I’ve created. Consider this a fair warning. Tested on Mac OSX Lion.
-  - This will eventually be moved to its own project.
-  - Idea taken from Randy Fay’s post which is very specific to drupal. http://randyfay.com/node/93
-
