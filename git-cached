@@ -1,0 +1,67 @@
+#!/bin/bash
+set -e
+
+if [[ ! $GIT_CACHE_DIR ]]; then
+  echo "Missing GIT_CACHE_DIR environmental variable."
+  echo "Instructions: https://gist.github.com/8839519ec5b823e047bf#gistcomment-49676"
+  exit
+fi
+
+if [[ $1 = 'clone' ]]; then
+  # The following variables will be set:
+  #   GIT_ADDR
+  #   GIT_PROT
+  #   GIT_DOMA
+  #   GIT_PATH
+  #   GIT_PROJ
+  #   GIT_USER
+  #   GIT_PORT
+  #   GIT_REPO
+  . git-cache-parse-url
+  [[ ! $GIT_ADDR ]] && echo "Could not detect a valid link." && exit
+
+  git-cache-repo $GIT_REPO $GIT_PROJ $GIT_ADDR
+  [[ ! -d $GIT_CACHE_DIR/$GIT_REPO ]] && echo "Error creating the cache repository." && exit
+
+  COMMAND=$1
+  shift
+  git $COMMAND --reference $GIT_CACHE_DIR/$GIT_REPO $*
+
+elif [[ $1 = 'repair' ]]; then
+  . git-cache-parse-url $( git remote show -n origin | sed -n 's|\([ ]*Fetch[ ]*URL:[ ]*.*\.git\).*|\1|p' )
+  [[ ! $GIT_ADDR ]] && echo "Could not find the fetch URL." && exit
+
+  git-cache-repo $GIT_REPO $GIT_PROJ $GIT_ADDR
+  [[ ! -d $GIT_CACHE_DIR/$GIT_REPO ]] && echo "Error processing the cache repository." && exit
+
+  # Look for the alternates file and point to the correct cache. This is only
+  # needed when moving to a different machine or if $GIT_CACHE_DIR was
+  # modified. It only changes lines specific to this caching scipts. Other
+  # alternates that may have been added manually will remain unchanged even if
+  # it contains a bad pointer. A back-up 'alternates.bak' is also created.
+  git_root=`pwd`
+  while [[ $git_root != '/' ]] && [[ ! -d "$git_root/.git" ]]; do
+    git_root=$( dirname $git_root )
+  done
+  alternates=$git_root/.git/objects/info/alternates
+  if [[ -f $alternates ]] && [[ ! $( sed -n "\|^$GIT_CACHE_DIR/$GIT_REPO/objects$|p" "$alternates" ) ]]; then
+    # fix object pointer. Must have an existing entry with the same naming pattern.
+    sed -i.bak "s|^.*/$GIT_REPO/objects$|$GIT_CACHE_DIR/$GIT_REPO/objects|" "$alternates"
+  fi
+
+elif [[ $1 = 'no-cache']]; then
+  git_root=`pwd`
+  while [[ $git_root != '/' ]] && [[ ! -d "$git_root/.git" ]]; do
+    git_root=$( dirname $git_root )
+  done
+  alternates=$git_root/.git/objects/info/alternates
+  if [[ -f $alternates ]] && [[ ! $( sed -n "\|^$GIT_CACHE_DIR/$GIT_REPO/objects$|p" "$alternates" ) ]]; then
+    # fix object pointer. Must have an existing entry with the same naming pattern.
+    sed -i.bak "s|^.*/$GIT_REPO/objects$||" "$alternates"
+  fi
+  git repack -a -f -d
+
+else
+  # Pass through other commands.
+  git $*
+fi

@@ -1,0 +1,36 @@
+#!/bin/bash
+set -e
+
+# Warning! This needs leading characters and a space that is not part of the
+# url in order to parse correctly.
+
+#                                    (\1) GIT_ADDR - full address
+#                                    | (\2) GIT_PROT - protocol, e.g. http://, git://, etc...
+#                                    | |                (\3) GIT_USER - the user in user@git.drupal.org[...]
+#                                    | |                |            (\4) GIT_DOMA - domain, e.g. git.drupal.org
+#                                    | |                |            |              (\5) GIT_PORT - port number
+#                                    | |                |            |              |              (\6) GIT_PATH - path after domain
+#                                    | |                |            |              |              |              (\7) GIT_PROJ - project name
+#                                    | |                |            |              |              |              |
+___SPLIT=$(echo $* | sed -n 's|.*[ ]\(\([a-zA-Z]*://\)*\([^ ]*[@]\)*\([^ /:]*\)[:]*\([0-9]*\)*[/]*\([^ :]*[^ /]*/\([^ /]*\)\.git\)\).*|\1,\2,\3,\4,\5,\6,\7|p')
+GIT_ADDR=$(echo $___SPLIT | sed -n 's|\([^,]*\),.*|\1|p')
+GIT_PROT=$(echo $___SPLIT | sed -n 's|\([^,]*,\)\{1\}\([^,]*\),.*|\2|p')
+GIT_USER=$(echo $___SPLIT | sed -n 's|\([^,]*,\)\{2\}\([^,@]*\)[@]*,.*|\2|p')
+GIT_DOMA=$(echo $___SPLIT | sed -n 's|\([^,]*,\)\{3\}\([^,]*\),.*|\2|p')
+GIT_PORT=$(echo $___SPLIT | sed -n 's|\([^,]*,\)\{4\}\([^,]*\),.*|\2|p')
+GIT_PATH=$(echo $___SPLIT | sed -n 's|\([^,]*,\)\{5\}\([^,]*\),.*|\2|p')
+GIT_PROJ=$(echo $___SPLIT | sed -n 's|\([^,]*,\)\{6\}\([^,]*\)|\2|p')
+if [[ $GIT_DOMA ]]; then
+  GIT_REPO=$GIT_USER@$GIT_DOMA
+fi
+
+# echo
+# echo "   address: $GIT_ADDR"
+# echo "  protocol: $GIT_PROT"
+# echo "    domain: $GIT_DOMA"
+# echo "      path: $GIT_PATH"
+# echo "   project: $GIT_PROJ"
+# echo "      user: $GIT_USER"
+# echo "      port: $GIT_PORT"
+# echo " user repo: $GIT_REPO"
+# echo

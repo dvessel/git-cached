@@ -1,0 +1,51 @@
+#!/bin/bash
+set -e
+
+GIT_REPO=$1
+GIT_PROJ=$2
+GIT_ADDR=$3
+PWD=`pwd`
+
+# Create cache directory for the domain and initialize if it doesn't exist.
+if [[ ! -d  $GIT_CACHE_DIR/$GIT_REPO ]]; then
+  mkdir $GIT_CACHE_DIR/$GIT_REPO
+  cd $GIT_CACHE_DIR/$GIT_REPO
+  git init --bare
+  git config core.compression 1
+  # Remove the initialized repo on failure.
+  # 1/SIGHUP, 2/SIGINT, 3/SIGQUIT, 15/SIGTERM, ERR
+  trap "rm -Rf $GIT_CACHE_DIR/$GIT_REPO" 1 2 3 15 ERR
+else
+  cd $GIT_CACHE_DIR/$GIT_REPO
+fi
+
+# If the remote doesn't exist locally, then initialize.
+if [[ ! $( git remote | sed -n "/^${GIT_PROJ}$/p" ) ]]; then
+  # Create a temporary directory.
+  if [[ -d $TMPDIR ]]; then
+    TEMPDIR=`mktemp -d -t $GIT_PROJ`
+  else
+    TEMPDIR=`mktemp -d`
+  fi
+  trap "rm -Rf $TEMPDIR" EXIT
+
+  # Clone project and use as a remote in the reference cache.
+  echo "Initializing clone of $GIT_PROJ from $GIT_REPO..."
+  git clone --bare $GIT_ADDR $TEMPDIR
+  git remote add $GIT_PROJ $TEMPDIR
+
+  # Update with temporary local remote then point remote URL externally.
+  # Secondary fetch registers external remote in FETCH_HEAD.
+  echo "Creating cache: $GIT_REPO >> $GIT_PROJ..."
+  git remote update $GIT_PROJ
+  git remote set-url $GIT_PROJ $GIT_ADDR
+  git fetch $GIT_PROJ --tags
+
+else
+  # Update existing local remote.
+  echo "Updating cache: $GIT_REPO >> $GIT_PROJ..."
+  git remote update $GIT_PROJ && git gc --auto
+fi
+
+# back to working dir
+cd $PWD

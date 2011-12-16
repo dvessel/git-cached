@@ -1,0 +1,104 @@
+#!/bin/bash
+set -e
+
+if [[ ! $GIT_CACHE_DIR ]]; then
+  echo "Missing GIT_CACHE_DIR environmental variable."
+  echo "Instructions: https://gist.github.com/8839519ec5b823e047bf#gistcomment-49676"
+  exit
+fi
+
+GIT_COMMAND=$1
+
+# The following variables will be set:
+#   GIT_ADDR
+#   GIT_PROT
+#   GIT_DOMA
+#   GIT_PATH
+#   GIT_PROJ
+#   GIT_USER
+#   GIT_PORT
+#   GIT_REPO
+. git-cache-parse-url
+
+PWD=`pwd`
+[[ ! $GIT_REPO ]] && GIT_REPO=$2
+[[ ! $GIT_PROJ ]] && GIT_PROJ=$3
+if [[ $GIT_REPO ]] && [[ -d $GIT_CACHE_DIR/$GIT_REPO ]]; then
+  GIT_REPO_DIR=$GIT_CACHE_DIR/$GIT_REPO
+  cd $GIT_REPO_DIR
+fi
+
+if [[ $GIT_COMMAND = 'add' ]]; then
+  # ADD
+  if [[ ! $GIT_ADDR ]]; then
+    echo "The add command requires a valid url." && exit
+  elif [[ $( git remote | sed -n "/^${GIT_PROJ}$/p" ) ]]; then
+    echo "$GIT_PROJ already exists in the $GIT_REPO cache repository." && exit
+  fi
+  git-cache-repo $GIT_REPO $GIT_PROJ $GIT_ADDR
+
+else
+  # other commands need the repository.
+  [[ $GIT_COMMAND ]] && [[ ! $GIT_REPO ]] && echo "The cache repository was not defined." && exit
+  [[ $GIT_COMMAND ]] && [[ ! $GIT_REPO_DIR ]] && echo "The cache repository $GIT_REPO does not exist." && exit
+
+  if [[ $GIT_COMMAND = 'update' ]]; then
+    # UPDATE
+    if [[ ! $GIT_PROJ ]] || [[ $GIT_PROJ = '--all' ]]; then
+      git remote update && git gc --auto
+    elif [[ $( git remote | sed -n "/^${GIT_PROJ}$/p" ) ]]; then
+      git remote update $GIT_PROJ && git gc --auto
+    else
+      echo "$GIT_PROJ does not exist within the $GIT_REPO cache repository."
+    fi
+
+  elif [[ $GIT_COMMAND = 'remove' ]]; then
+    # REMOVE
+    if [[ ! $GIT_PROJ ]] || [[ $GIT_PROJ = '--all' ]]; then
+      # remove all
+      if [[ $( git remote ) ]]; then
+        echo "Are you sure you want to remove all caches for $GIT_REPO?"
+        echo "The following projects will be removed:"
+        git remote | sed -e 's|.*|  - &|'
+        echo "It might also contain objects for previously removed projects."
+      else
+        echo "Are you sure you want to remove $GIT_REPO?"
+        echo "It is currently empty but it might also contain objects for previously removed projects."
+      fi
+      echo "yes or no?" && read CONFIRM
+
+      if [[ $CONFIRM = 'y' ]] || [[ $CONFIRM = 'yes' ]]; then
+        rm -rf $GIT_REPO_DIR
+        echo "Removed $GIT_REPO from local reference cache."
+      fi
+
+    elif [[ $( git remote | sed -n "/^${GIT_PROJ}$/p" ) ]]; then
+      # remove project
+      echo "Are you sure you want to remove the cache for $GIT_PROJ from $GIT_REPO?"
+      echo "yes or no?" && read CONFIRM
+
+      if [[ $CONFIRM = 'y' ]] || [[ $CONFIRM = 'yes' ]]; then
+        git remote rm $GIT_PROJ
+        echo "Removed $GIT_PROJ cache from $GIT_REPO."
+      fi
+
+    else
+      echo "$GIT_PROJ does not exist within the $GIT_REPO cache repository."
+    fi
+
+  elif [[ $GIT_COMMAND = 'list' ]]; then
+    # LIST
+    git remote | sed -e 's|.*|  - &|'
+
+  else
+    # none of the above
+    echo "The command was not valid. You can:
+  - add|update|remove git://example.org/project/foobar.git
+  - update example.org [foobar|--all]
+  - remove example.org [foobar|--all]
+  - list example.org"
+  fi
+fi
+
+# might have been removed.
+[[ -d $PWD ]] && cd $PWD
