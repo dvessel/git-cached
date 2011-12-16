@@ -25,39 +25,58 @@ if [[ $1 = 'clone' ]]; then
   shift
   git $COMMAND --reference $GIT_CACHE_DIR/$GIT_REPO $*
 
-elif [[ $1 = 'repair' ]]; then
+elif [[ $1 = 'repair' ]] || [[ $1 = 'no-cache' ]]; then
+  # Need to find remote info.
   . git-cache-parse-url $( git remote show -n origin | sed -n 's|\([ ]*Fetch[ ]*URL:[ ]*.*\.git\).*|\1|p' )
   [[ ! $GIT_ADDR ]] && echo "Could not find the fetch URL." && exit
 
-  git-cache-repo $GIT_REPO $GIT_PROJ $GIT_ADDR
-  [[ ! -d $GIT_CACHE_DIR/$GIT_REPO ]] && echo "Error processing the cache repository." && exit
-
-  # Look for the alternates file and point to the correct cache. This is only
-  # needed when moving to a different machine or if $GIT_CACHE_DIR was
-  # modified. It only changes lines specific to this caching scipts. Other
-  # alternates that may have been added manually will remain unchanged even if
-  # it contains a bad pointer. A back-up 'alternates.bak' is also created.
+  # Look for the alternates file relative to the working directory.
   git_root=`pwd`
   while [[ $git_root != '/' ]] && [[ ! -d "$git_root/.git" ]]; do
     git_root=$( dirname $git_root )
   done
   alternates=$git_root/.git/objects/info/alternates
-  if [[ -f $alternates ]] && [[ ! $( sed -n "\|^$GIT_CACHE_DIR/$GIT_REPO/objects$|p" "$alternates" ) ]]; then
-    # fix object pointer. Must have an existing entry with the same naming pattern.
-    sed -i.bak "s|^.*/$GIT_REPO/objects$|$GIT_CACHE_DIR/$GIT_REPO/objects|" "$alternates"
-  fi
+  [[ ! -f $alternates ]] && echo "Could not find the alternates file." && exit
 
-elif [[ $1 = 'no-cache' ]]; then
-  git_root=`pwd`
-  while [[ $git_root != '/' ]] && [[ ! -d "$git_root/.git" ]]; do
-    git_root=$( dirname $git_root )
-  done
-  alternates=$git_root/.git/objects/info/alternates
-  if [[ -f $alternates ]] && [[ ! $( sed -n "\|^$GIT_CACHE_DIR/$GIT_REPO/objects$|p" "$alternates" ) ]]; then
-    # fix object pointer. Must have an existing entry with the same naming pattern.
-    sed -i.bak "s|^.*/$GIT_REPO/objects$||" "$alternates"
+  if [[ $1 = 'repair' ]]; then
+    
+    # Must have an existing entry with the same pattern.
+    if [[ ! $( sed -n "\|^.*/$GIT_REPO/objects$|p" "$alternates" ) ]]; then
+      echo "The local repository is not cached. I cannot repair it." && exit
+    fi
+    repaired=false
+
+    # Generate the cache repo if it doesn't exist.
+    if [[ ! -d $GIT_CACHE_DIR/$GIT_REPO ]]; then
+      git-cache-repo $GIT_REPO $GIT_PROJ $GIT_ADDR
+      repaired=true
+    fi
+
+    # Modify alternates so it points to the correct cache directory. It only
+    # changes lines specific to this caching scipts. Other alternates that may
+    # have been added manually will remain unchanged even if it contains a bad
+    # pointer.
+    if [[ ! $( sed -n "\|^$GIT_CACHE_DIR/$GIT_REPO/objects$|p" "$alternates" ) ]]; then
+      # Fix object pointer. An 'alternates.bak' will be created.
+      sed -i.bak "s|^.*/$GIT_REPO/objects$|$GIT_CACHE_DIR/$GIT_REPO/objects|" "$alternates"
+      repaired=true
+      echo "Alternates now pointing to the cache objects in $GIT_REPO."
+    fi
+
+    [[ $repaired == false ]] && echo "There is nothing to repair."
+
+  elif [[ $1 = 'no-cache' ]]; then
+
+    # Make sure it is pointing to a cache repo.
+    if [[ $( sed -n "\|^$GIT_CACHE_DIR/$GIT_REPO/objects$|p" "$alternates" ) ]]; then
+      echo "Repacking..."
+      git repack -a -f -d
+      # Remove object pointer. An 'alternates.bak' will be created.
+      sed -i.bak "s|^$GIT_CACHE_DIR/$GIT_REPO/objects$||" "$alternates"
+    else
+      echo "The local repository is not cached."
+    fi
   fi
-  git repack -a -f -d
 
 else
   # Pass through other commands.

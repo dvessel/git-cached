@@ -57,11 +57,14 @@ The above commands pointing to the `@git.drupal.org` must be prefixed with your 
 
 If the cache goes missing for any reason, you can rebuild it from scratch with `git-cached repair` while you are in the working directory. The list command is self explanatory and it does not need a third argument.
 
+To remove the dependency from the cache, use `no-cache`. It will repack the local repo with `git repack -a -f -d` and remove the pointer in the alternates file.
+
+    $ git-cached no-cache
+
 Notes
 ------
 
   - You can pass any git command to git-cached and it should handle it just fine since it will simply pass through all commands unless you are cloning or repairing.
-  - To remove all dependencies to the cache, run `git repack -a` from the clone. There is also a ‘.git/objects/info/alternates’ you can remove which points to the cache. I'll update the script to automate this in the future.
   - The cached clone is set with `--reference` pointing to the cache repository. See the man page for git-clone.
   - Removing projects from the cache repo does not remove their objects. This allows the referenced clones to continue to work. Removing the whole cache repo for the domain on the other hand will invalidate them. Just remember to repair.
   - If you move the clone to another machine it may invalidate the path pointing to the cache. Changing `GIT_CACHE_DIR` will do the same. Simply call `git-cached repair` in your working directory to fix it.
