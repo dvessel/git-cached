@@ -3,7 +3,7 @@ set -e
 
 if [[ ! $GIT_CACHE_DIR ]]; then
   echo "Missing GIT_CACHE_DIR environmental variable."
-  echo "Instructions: https://gist.github.com/8839519ec5b823e047bf#gistcomment-49676"
+  echo "Instructions: https://github.com/dvessel/git-cached#readme"
   exit
 fi
 
