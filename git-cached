@@ -49,7 +49,7 @@ elif [[ $1 = 'repair' ]]; then
     sed -i.bak "s|^.*/$GIT_REPO/objects$|$GIT_CACHE_DIR/$GIT_REPO/objects|" "$alternates"
   fi
 
-elif [[ $1 = 'no-cache']]; then
+elif [[ $1 = 'no-cache' ]]; then
   git_root=`pwd`
   while [[ $git_root != '/' ]] && [[ ! -d "$git_root/.git" ]]; do
     git_root=$( dirname $git_root )
