@@ -1,6 +1,10 @@
 #!/bin/bash
 set -e
 
+if [[ ! $GIT_CACHE_DIR ]]; then
+  GIT_CACHE_DIR=$HOME/.git_cache
+fi
+
 GIT_REPO=$1
 GIT_PROJ=$2
 GIT_ADDR=$3
