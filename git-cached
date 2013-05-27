@@ -23,7 +23,7 @@ if [[ $1 = 'clone' ]]; then
 
   COMMAND=$1
   shift
-  git $COMMAND --reference $GIT_CACHE_DIR/$GIT_REPO $*
+  git $COMMAND --reference $GIT_CACHE_DIR/$GIT_REPO "$@"
 
 elif [[ $1 = 'repair' ]] || [[ $1 = 'no-cache' ]]; then
   # Need to find remote info.
@@ -80,5 +80,5 @@ elif [[ $1 = 'repair' ]] || [[ $1 = 'no-cache' ]]; then
 
 else
   # Pass through other commands.
-  git $*
+  git "$@"
 fi
