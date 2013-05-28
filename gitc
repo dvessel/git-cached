@@ -58,6 +58,10 @@ function __gitc_initialize() {
     fi
     trap "rm -Rf $TEMPDIR && cd $cwd" EXIT
 
+    # Add default configuration for the project.
+    # Do not download tags due to the overlaps across projects.
+    git config --add remote.$proj.tagopt --no-tags
+
     # Clone project and use as a remote in the reference cache.
     echo "Initializing clone of $proj from $repo..."
     git clone --bare $addr $TEMPDIR
@@ -68,7 +72,7 @@ function __gitc_initialize() {
     echo "Creating cache: $repo >> $proj..."
     git remote update $proj
     git remote set-url $proj $addr
-    git fetch $proj --tags
+    git fetch $proj
   fi
 
   cd $cwd
@@ -94,7 +98,6 @@ function __gitc_project() {
   git config -z --get git-cached.project 2> /dev/null
 }
 
-
 # Callback functions.
 # ----------------------------------------------------------------------------
 
@@ -105,7 +108,7 @@ function _gitc_fetch() {
 
   if [[ -d $cdir && -n $proj ]]; then
     cd $cdir
-    echo "Fetching cache..." && git fetch $proj
+    echo "Fetching cache..." && git fetch $proj --append && git gc --auto
     cd $cwd
   fi
   git "$@"
