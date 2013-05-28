@@ -61,6 +61,7 @@ function __gitc_initialize() {
     # Add default configuration for the project.
     # Do not download tags due to the overlaps across projects.
     git config --add remote.$proj.tagopt --no-tags
+    git config --add gc.pruneexpire never
 
     # Clone project and use as a remote in the reference cache.
     echo "Initializing clone of $proj from $repo..."
@@ -108,7 +109,7 @@ function _gitc_fetch() {
 
   if [[ -d $cdir && -n $proj ]]; then
     cd $cdir
-    echo "Fetching cache..." && git fetch $proj && git gc --auto
+    echo "Fetching cache..." && git fetch $proj
     cd $cwd
   fi
   git "$@"
