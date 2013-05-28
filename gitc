@@ -146,7 +146,7 @@ function _gitc_cache_detach() {
   local cdir=`__gitc_cache_dir`
   local alts=`__gitc_alternates`
 
-  echo "Repacking..." && git repack -adF
+  echo "Repacking..." && git repack -a -d -l
   # Remove object pointer. An 'alternates.bak' will be created.
   sed -i.bak "s|^$cdir/objects$||" $alts
   git config -z --remove-section git-cached 2> /dev/null
