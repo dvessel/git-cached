@@ -50,8 +50,7 @@ gitc cache remote
 Notes
 ------
 
-  - The cached clone is set with `--reference` pointing to the cache repository. See the man page for git-clone.
-  - Removing projects from the cache repo does not remove their objects. This allows the referenced clones to continue to work. Removing the whole cache repo for the domain on the other hand will invalidate them. Just remember to repair.
-  - If you move the clone to another machine it may invalidate the path pointing to the cache. Changing `GIT_CACHE_DIR` will do the same. Simply call `gitc cache-repair` in your working directory to fix it.
+  - The cached clone is set with `--reference` pointing to the object storage. See the man page for git-clone.
+  - If you move the clone to another machine it may invalidate the path pointing to the object store. Changing `GIT_CACHE_DIR` will do the same. Simply call `gitc cache-repair` in your working directory to fix it.
   - This is the first bash script I’ve created. Consider this a fair warning. Tested on Mac OSX Lion.
   - This new development version is incompatible with master.
