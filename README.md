@@ -5,13 +5,9 @@ Symlink the script to a location visible by `PATH`. I have mine set to `~/bin`.
 
 An optional global variable `GIT_CACHED_DIR` can be set. This is where the cached objects are stored. The default is shown below.
 
-I also have a shell alias set so it is called instead of `git` itself.
-
 ```bash
 export PATH=$HOME/bin:$PATH
 export GIT_CACHED_DIR=$HOME/.git_objects
-
-alias git=gitc
 ```
 
 Usage
