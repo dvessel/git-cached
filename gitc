@@ -72,7 +72,7 @@ function __gitc_initialize() {
     echo "Creating cache: $repo >> $proj..."
     git remote update $proj
     git remote set-url $proj $addr
-    git fetch $proj
+    git fetch $proj --append
   fi
 
   cd $cwd
