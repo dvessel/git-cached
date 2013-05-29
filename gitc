@@ -2,7 +2,7 @@
 set -e
 
 if [[ ! $GIT_CACHE_DIR ]]; then
-  GIT_CACHE_DIR=$HOME/.git_cache
+  GIT_CACHE_DIR=$HOME/.git_objects
 fi
 
 
@@ -10,6 +10,10 @@ fi
 # ----------------------------------------------------------------------------
 
 function __gitc_initialize() {
+  __GIT_PROJECT=
+  __GIT_DOMAIN=
+  __GIT_CACHE_DIR=
+
   #                                      1 addr - full address
   #                                      | 2 prot - protocol, e.g. http://, git://, etc...
   #                                      | |                3 user - the user in user@git.drupal.org[...]
@@ -31,8 +35,10 @@ function __gitc_initialize() {
   local cwd=`pwd`
 
   if [[ $doma ]]; then
-    repo=@$doma
-    cdir=$GIT_CACHE_DIR/$repo
+    __GIT_PROJECT=$proj
+    __GIT_DOMAIN=$doma
+    __GIT_CACHE_DIR=$GIT_CACHE_DIR
+    cdir=$GIT_CACHE_DIR
   else
     echo "Could not determine the url for the repository." && exit
   fi
@@ -41,6 +47,8 @@ function __gitc_initialize() {
   if [[ ! -d  $cdir ]]; then
     mkdir $cdir && cd $cdir
     git init --bare
+    # Object store should never be pruned.
+    git config --add gc.pruneexpire never
     # Remove the initialized repo on failure.
     # 1/SIGHUP, 2/SIGINT, 3/SIGQUIT, 15/SIGTERM, ERR
     trap "rm -Rf $cdir && cd $cwd" 1 2 3 15 ERR
@@ -49,7 +57,7 @@ function __gitc_initialize() {
   fi
 
   # If the remote doesn't exist locally, then initialize.
-  if [[ ! $( git remote | sed -n "/^${proj}$/p" ) ]]; then
+  if [[ ! `git remote | sed -n "/^${proj}$/p"` ]]; then
     # Create a temporary directory.
     if [[ -d $TMPDIR ]]; then
       TEMPDIR=`mktemp -d -t $proj`
@@ -58,29 +66,35 @@ function __gitc_initialize() {
     fi
     trap "rm -Rf $TEMPDIR && cd $cwd" EXIT
 
-    # Add default configuration for the project.
-    # Do not download tags due to the overlaps across projects.
-    git config --add remote.$proj.tagopt --no-tags
-    git config --add gc.pruneexpire never
-
-    # Clone project and use as a remote in the reference cache.
-    echo "Initializing clone of $proj from $repo..."
+    # Clone to a temporary directory and update the cache store from there.
+    echo "Initialized clone of $proj from $doma..."
     git clone --bare $addr $TEMPDIR
     git remote add $proj $TEMPDIR
 
-    # Update with temporary local remote then point remote URL externally.
-    # Secondary fetch registers external remote in FETCH_HEAD.
-    echo "Creating cache: $repo >> $proj..."
+    # Add default configuration for the project.
+    # Do not download tags due to the overlaps across projects.
+    git config --add remote.$proj.tagopt --no-tags
+
+    # Update with temporary clone then point remote URL externally.
+    echo "Creating cache: $doma >> $proj..."
     git remote update $proj
     git remote set-url $proj $addr
     git fetch $proj
   fi
 
   cd $cwd
+}
 
-  git config --replace-all git-cached.project $proj
-  git config --replace-all git-cached.repository $repo
-  git config --replace-all git-cached.cache-dir $cdir
+function ___gitc_fetch_object_store() {
+  local cwd=`pwd`
+  local cdir=`__gitc_cache_dir`
+  local proj=`__gitc_project`
+
+  if [[ -d $cdir && -n $proj ]]; then
+    cd $cdir
+    echo "Fetching object store..." && git fetch $proj
+    cd $cwd
+  fi
 }
 
 function __gitc_alternates() {
@@ -99,19 +113,15 @@ function __gitc_project() {
   git config -z --get git-cached.project 2> /dev/null
 }
 
+function __gitc_domain() {
+  git config -z --get git-cached.domain 2> /dev/null
+}
+
 # Callback functions.
 # ----------------------------------------------------------------------------
 
 function _gitc_fetch() {
-  local cwd=`pwd`
-  local cdir=`__gitc_cache_dir`
-  local proj=`__gitc_project`
-
-  if [[ -d $cdir && -n $proj ]]; then
-    cd $cdir
-    echo "Fetching cache..." && git fetch $proj
-    cd $cwd
-  fi
+  ___gitc_fetch_object_store
   git "$@"
 }
 
@@ -122,15 +132,23 @@ function _gitc_pull() {
 function _gitc_clone() {
   __gitc_initialize "$@"
 
-  local cdir=`__gitc_cache_dir`
+  # Add tracking info.
+  local config=
+  config+=" --config git-cached.project=$__GIT_PROJECT"
+  config+=" --config git-cached.domain=$__GIT_DOMAIN"
+  config+=" --config git-cached.cache-dir=$__GIT_CACHE_DIR"
 
-  git "$@" --reference $cdir
+  git "$@" --reference $__GIT_CACHE_DIR $config
 }
 
 function _gitc_cache_attach() {
   [[ -n `__gitc_is_cached` ]] && echo "Already attached." && exit
 
   __gitc_initialize `git config --get remote.origin.url`
+
+  git config --replace-all git-cached.project $__GIT_PROJECT
+  git config --replace-all git-cached.domain $__GIT_DOMAIN
+  git config --replace-all git-cached.cache-dir $__GIT_CACHE_DIR
 
   local cdir=`__gitc_cache_dir`
   local alts=`__gitc_alternates`
@@ -156,13 +174,25 @@ function _gitc_cache_repair() {
   echo "Repairing..." && _gitc_cache_detach && _gitc_cache_attach
 }
 
+# Don't use this if the alternates file was manually modified.
+function _gitc_overwrite_alternates() {
+  local cdir=`__gitc_cache_dir`
+  local alts=`__gitc_alternates`
+
+  if [[ -n `__gitc_is_cached` && -d $cdir/objects ]]; then
+    echo $cdir/objects >> $alts && echo "Alternates pointing to $cdir"
+  else
+    echo "Does not use shared object storage."
+  fi
+}
+
 function _gitc_cache() {
   local cwd=`pwd`
-  local cdir=$GIT_CACHE_DIR/$2
+  local cdir=`__gitc_cache_dir`
   if [[ -d $cdir ]]; then
-    shift 2 && cd $cdir && git "$@" && cd $cwd
+    shift && cd $cdir && git "$@" && cd $cwd
   else
-    echo "$2 does not exist."
+    echo "Git object store does not exist."
   fi
 }
 
