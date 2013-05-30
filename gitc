@@ -2,17 +2,42 @@
 set -e
 
 if [[ ! $GIT_CACHE_DIR ]]; then
-  GIT_CACHE_DIR=$HOME/.git_objects
+  GIT_CACHE_DIR=$HOME/.gitobjectstore
 fi
 
 
 # Helper functions.
 # ----------------------------------------------------------------------------
 
+function __gitc_filter_args() {
+  local args=
+
+  while test $# != 0; do
+    case "$1" in
+      --store-group) shift ;;
+      *) args+=" $1" ;;
+    esac; shift
+  done
+
+  echo $args
+}
+
 function __gitc_initialize() {
-  __GIT_PROJECT=
-  __GIT_DOMAIN=
-  __GIT_CACHE_DIR=
+  __GITC_PROJECT=
+  __GITC_DOMAIN=
+  __GITC_CACHE_DIR=
+
+  local args=
+  local grou='default'
+
+  while test $# != 0; do
+    case "$1" in
+      --store-group) grou="$2"; shift ;;
+      *) args+=" $1" ;;
+    esac; shift
+  done
+
+  set - $args
 
   #                                      1 addr - full address
   #                                      | 2 prot - protocol, e.g. http://, git://, etc...
@@ -35,10 +60,10 @@ function __gitc_initialize() {
   local cwd=`pwd`
 
   if [[ $doma ]]; then
-    __GIT_PROJECT=$proj
-    __GIT_DOMAIN=$doma
-    __GIT_CACHE_DIR=$GIT_CACHE_DIR
-    cdir=$GIT_CACHE_DIR
+    __GITC_PROJECT=$proj
+    __GITC_DOMAIN=$doma
+    __GITC_CACHE_DIR=$GIT_CACHE_DIR/$grou
+    cdir=$__GITC_CACHE_DIR
   else
     echo "Could not determine the url for the repository." && exit
   fi
@@ -129,26 +154,29 @@ function _gitc_pull() {
   _gitc_fetch "$@"
 }
 
-function _gitc_clone() {
+function _gitc_cclone() {
+  set - `__gitc_filter_args "$@"`
   __gitc_initialize "$@"
 
   # Add tracking info.
   local config=
-  config+=" --config git-cached.project=$__GIT_PROJECT"
-  config+=" --config git-cached.domain=$__GIT_DOMAIN"
-  config+=" --config git-cached.cache-dir=$__GIT_CACHE_DIR"
+  config+=" --config git-cached.project=$__GITC_PROJECT"
+  config+=" --config git-cached.domain=$__GITC_DOMAIN"
+  config+=" --config git-cached.cache-dir=$__GITC_CACHE_DIR"
 
-  git "$@" --reference $__GIT_CACHE_DIR $config
+  shift
+  git clone "$@" --reference $__GITC_CACHE_DIR $config
 }
 
 function _gitc_cache_attach() {
   [[ -n `__gitc_is_cached` ]] && echo "Already attached." && exit
 
-  __gitc_initialize `git config --get remote.origin.url`
+  set - `__gitc_filter_args "$@"`
+  __gitc_initialize `git config --get remote.origin.url` "$@"
 
-  git config --replace-all git-cached.project $__GIT_PROJECT
-  git config --replace-all git-cached.domain $__GIT_DOMAIN
-  git config --replace-all git-cached.cache-dir $__GIT_CACHE_DIR
+  git config --replace-all git-cached.project $__GITC_PROJECT
+  git config --replace-all git-cached.domain $__GITC_DOMAIN
+  git config --replace-all git-cached.cache-dir $__GITC_CACHE_DIR
 
   local cdir=`__gitc_cache_dir`
   local alts=`__gitc_alternates`
@@ -171,7 +199,7 @@ function _gitc_cache_detach() {
 }
 
 function _gitc_cache_repair() {
-  echo "Repairing..." && _gitc_cache_detach && _gitc_cache_attach
+  echo "Repairing..." && _gitc_cache_detach && _gitc_cache_attach "$@"
 }
 
 # Don't use this if the alternates file was manually modified.
