@@ -208,7 +208,7 @@ function _gitc_overwrite_alternates() {
   local alts=`__gitc_alternates`
 
   if [[ -n `__gitc_is_cached` && -d $cdir/objects ]]; then
-    echo $cdir/objects >> $alts && echo "Alternates pointing to $cdir"
+    echo $cdir/objects > $alts && echo "Alternates pointing to $cdir"
   else
     echo "Does not use shared object storage."
   fi
