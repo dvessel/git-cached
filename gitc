@@ -123,7 +123,7 @@ function ___gitc_fetch_object_store() {
 }
 
 function __gitc_alternates() {
-  echo "`git rev-parse --show-toplevel`/.git/objects/info/alternates"
+  echo "`git rev-parse --git-dir`/objects/info/alternates"
 }
 
 function __gitc_is_cached() {
