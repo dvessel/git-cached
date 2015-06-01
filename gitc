@@ -229,4 +229,5 @@ function _gitc_cache() {
 # Detect callback function and fallback to git if it doesn't exist.
 __callback="_gitc_${1//-/_}"
 # Filter out flags.
-[[ ! $1 =~ ^-.* && `declare -Ff $__callback` ]] && $__callback "$@" || git "$@"
+[[ ! $1 =~ ^-.* && `declare -Ff $__callback` ]] && $__callback "$@"
+[[ ! $1 =~ ^-.* && `declare -Ff $__callback` ]] || git "$@"
