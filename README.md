@@ -3,11 +3,11 @@ Installation
 
 Symlink the script to a location visible by `PATH`. I have mine set to `~/bin`.
 
-An optional global variable `GIT_CACHED_DIR` can be set. This is where the cached objects are stored. The default is shown below.
+An optional global variable `GIT_CACHE_DIR` can be set. This is where the cached objects are stored. The default is shown below.
 
 ```bash
 export PATH=$HOME/bin:$PATH
-export GIT_CACHED_DIR=$HOME/.gitobjectstore
+export GIT_CACHE_DIR=$HOME/.gitobjectstore
 ```
 
 Usage
