@@ -85,7 +85,7 @@ function __gitc_initialize() {
   if [[ ! `git remote | sed -n "/^${proj}$/p"` ]]; then
     # Create a temporary directory.
     if [[ -d $TMPDIR ]]; then
-      TEMPDIR=`mktemp -d -t $proj`
+      TEMPDIR=`mktemp -d --tmpdir $proj.XXX`
     else
       TEMPDIR=`mktemp -d`
     fi
@@ -123,7 +123,7 @@ function ___gitc_fetch_object_store() {
 }
 
 function __gitc_alternates() {
-  echo "`git rev-parse --show-toplevel`/.git/objects/info/alternates"
+  echo "`git rev-parse --git-dir`/objects/info/alternates"
 }
 
 function __gitc_is_cached() {
@@ -229,4 +229,5 @@ function _gitc_cache() {
 # Detect callback function and fallback to git if it doesn't exist.
 __callback="_gitc_${1//-/_}"
 # Filter out flags.
-[[ ! $1 =~ ^-.* && `declare -Ff $__callback` ]] && $__callback "$@" || git "$@"
+[[ ! $1 =~ ^-.* && `declare -Ff $__callback` ]] && $__callback "$@"
+[[ ! $1 =~ ^-.* && `declare -Ff $__callback` ]] || git "$@"
