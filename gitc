@@ -85,7 +85,7 @@ function __gitc_initialize() {
   if [[ ! `git remote | sed -n "/^${proj}$/p"` ]]; then
     # Create a temporary directory.
     if [[ -d $TMPDIR ]]; then
-      TEMPDIR=`mktemp -d -t $proj`
+      TEMPDIR=`mktemp -d --tmpdir $proj.XXX`
     else
       TEMPDIR=`mktemp -d`
     fi
